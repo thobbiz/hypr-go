@@ -31,13 +31,13 @@ func main() {
 	}
 }
 
-func get_clients() ([]Window, error) {
+func get_clients() ([]ipc.Window, error) {
 	out, err := exec.Command("hyprctl", "-j", "clients").Output()
 	if err != nil {
 		return nil, err
 	}
 
-	var windows []Window
+	var windows []ipc.Window
 	if err := json.Unmarshal(out, &windows); err != nil {
 		return nil, err
 	}

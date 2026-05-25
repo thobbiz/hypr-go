@@ -1,4 +1,4 @@
-package main
+package ipc
 
 type Workspace struct {
 	ID           int    `json:"id"`
@@ -6,6 +6,7 @@ type Workspace struct {
 	Monitor      string `json:"monitor"`
 	MonitorID    int    `json:"monitorID"`
 	Windows      int    `json:"windows"` // Number of open windows
+	FullScreen   bool   `json:"hasfullscreen"`
 	IsPersistent bool   `json:"ispersistent"`
 	TiledLayout  string `json:"tiledLayout"` // Can be dwindle or master
 }
