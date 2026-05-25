@@ -1,6 +1,7 @@
 package main
 
 type Window struct {
+	Address        string    `json:"address"`
 	Mapped         bool      `json:"mapped"`
 	Hidden         bool      `json:"hidden"`
 	Workspace      Workspace `json:"workspace"`
