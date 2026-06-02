@@ -1,4 +1,4 @@
-package main
+package ipc
 
 type Monitor struct {
 	ID               int       `json:"id"`
