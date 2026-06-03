@@ -5,6 +5,8 @@ type Window struct {
 	Class          string          `json:"class"`
 	Mapped         bool            `json:"mapped"`
 	Hidden         bool            `json:"hidden"`
+	At             [2]int          `json:"at"`
+	Size           [2]int          `json:"size"`
 	Workspace      WindowWorkspace `json:"workspace"`
 	Floating       bool            `json:"floating"`
 	Monitor        int             `json:"monitor"`
