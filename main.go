@@ -10,22 +10,11 @@ import (
 	"os/exec"
 
 	"github.com/thobbiz/hypr-go/ipc"
+	"github.com/thobbiz/hypr-go/layout"
 )
 
 func main() {
-	// windows, err := get_clients()
-	// if err != nil {
-	// 	fmt.Println("Error: ", err)
-	// 	return
-	// }
-
-	// for _, w := range windows {
-	// 	fmt.Printf("Title: %s | Mapped: %t | Workspace: %v | PID: %d\n", w.Title, w.Mapped, w.Workspace, w.PID)
-	// }
-
-	err := ipc.ListenEvents(func(event, data string) {
-		fmt.Printf("Event: %s | Data: %s\n", event, data)
-	})
+	err := layout.SaveWorkspace(1, "reading")
 	if err != nil {
 		log.Fatal(err)
 	}
