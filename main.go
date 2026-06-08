@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	err := layout.SaveWorkspace(1, "reading")
+	err := layout.SaveWorkspace(1, "coded")
 	if err != nil {
 		log.Fatal(err)
 	}

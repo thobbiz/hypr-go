@@ -4,6 +4,7 @@ import "time"
 
 type WindowEntry struct {
 	Class     string `yaml:"class"`
+	Cmd       string `yaml:"cmd"`
 	Workspace int    `yaml:"workspace"`
 	X         int    `yaml:"pos_x"`
 	Y         int    `yaml:"pos_y"`

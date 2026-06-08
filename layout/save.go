@@ -1,11 +1,13 @@
 package layout
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/thobbiz/hypr-go/ipc"
@@ -62,8 +64,13 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 
 	for _, w := range windows {
 		if w.Workspace.ID == id {
+			command, err := getCommandFromPID(w.PID)
+			if err != nil {
+				return nil, err
+			}
 			anon := WindowEntry{
 				Class:     w.Class,
+				Cmd:       command,
 				Workspace: w.Workspace.ID,
 				X:         w.At[0],
 				Y:         w.At[1],
@@ -79,4 +86,19 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 		return nil, errors.New("workspace not found")
 	}
 	return &result, nil
+}
+
+func getCommandFromPID(pid int) (string, error) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return "", err
+	}
+
+	parts := bytes.Split(data, []byte{0})
+	if len(parts) == 0 || len(parts[0]) == 0 {
+		return "", fmt.Errorf("empty cmdline for pid %d", pid)
+	}
+
+	exe := strings.SplitN(string(parts[0]), " ", 2)[0]
+	return exe, nil
 }
