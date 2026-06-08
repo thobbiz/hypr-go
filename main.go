@@ -14,9 +14,15 @@ import (
 )
 
 func main() {
-	err := layout.SaveWorkspace(1, "coded")
+	// err := layout.SaveWorkspace(1, "coded")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	workspaceID := 5
+	err := layout.RestoreWorkspace("coded", &workspaceID)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal()
 	}
 }
 
