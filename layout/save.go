@@ -99,6 +99,6 @@ func getCommandFromPID(pid int) (string, error) {
 		return "", fmt.Errorf("empty cmdline for pid %d", pid)
 	}
 
-	exe := strings.SplitN(string(parts[0]), " ", 2)[0]
+	exe, _, _ := strings.Cut(string(parts[0]), " ")
 	return exe, nil
 }
