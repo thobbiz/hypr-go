@@ -24,29 +24,54 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 
 	for _, w := range saved.Windows {
 		LaunchAppFromCmd(w)
-		found := make(chan string)
+		found := make(chan string, 1)
+		done := make(chan struct{})
 
-		go ipc.ListenEvents(func(event, data string) {
+		go ipc.ListenEvents(done, func(event, data string) {
 			if event == "openwindow" {
 				parts := strings.SplitN(data, ",", 4)
 				class := parts[2]
 				if class == w.Class {
 					found <- parts[0]
+					close(done)
 				}
 			}
 		})
 
 		address := <-found
+		log.Printf("address = %s          name = %s", address, w.Class)
 
 		if workspaceID != nil {
 			w.Workspace = *workspaceID
 		}
-		out, err := dispatchWindow(address, w.Workspace)
-		if err != nil {
-			log.Fatal(err)
+
+		if w.Floating {
+			err := setFloatingToTrue(address)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = dispatchWindow(address, w.Workspace)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = resizeWindow(address, w.Width, w.Height)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = moveWindow(address, w.X, w.Y)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			err := dispatchWindow(address, w.Workspace)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
-		log.Println(out)
 	}
 
 	return nil
@@ -74,10 +99,34 @@ func decodeYaml(filename string) (*Layout, error) {
 	return &layout, nil
 }
 
-func dispatchWindow(address string, workspaceID int) (string, error) {
-	out, err := ipc.SendCommand(fmt.Sprintf("dispatch hl.dsp.window.move({window = 'address:0x%s', workspace = '%d'})", address, workspaceID))
+func dispatchWindow(address string, workspaceID int) error {
+	_, err := ipc.SendCommand(fmt.Sprintf("dispatch hl.dsp.window.move({window = 'address:0x%s', workspace = '%d'})", address, workspaceID))
 	if err != nil {
-		return "", err
+		return err
 	}
-	return out, nil
+	return nil
+}
+
+func setFloatingToTrue(address string) error {
+	_, err := ipc.SendCommand(fmt.Sprintf("dispatch hl.dsp.window.float({window = 'address:0x%s', action = 'on'})", address))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func resizeWindow(address string, width, height int) error {
+	_, err := ipc.SendCommand(fmt.Sprintf("dispatch hl.dsp.window.resize({window = 'address:0x%s', x = %d, y = %d})", address, width, height))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func moveWindow(address string, x, y int) error {
+	_, err := ipc.SendCommand(fmt.Sprintf("dispatch hl.dsp.window.move({window = 'address:0x%s', x = %d, y = %d})", address, x, y))
+	if err != nil {
+		return err
+	}
+	return nil
 }
