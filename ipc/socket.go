@@ -34,12 +34,10 @@ func SendCommand(command string) (string, error) {
 	return string(data), nil
 }
 
-func ListenEvents(handler func(event, data string)) error {
+func ListenEvents(done chan struct{}, handler func(event, data string)) error {
 	his := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
 	xdg := os.Getenv("XDG_RUNTIME_DIR")
-
 	path := fmt.Sprintf("%s/hypr/%s/.socket2.sock", xdg, his)
-
 	conn, err := net.Dial("unix", path)
 	if err != nil {
 		return fmt.Errorf("Error creating connection: %v", err)
@@ -47,13 +45,19 @@ func ListenEvents(handler func(event, data string)) error {
 	defer conn.Close()
 
 	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Split(line, ">>")
-		if len(parts) == 2 {
-			handler(parts[0], parts[1])
+	for {
+		select {
+		case <-done:
+			return nil
+		default:
+			if !scanner.Scan() {
+				return scanner.Err()
+			}
+			line := scanner.Text()
+			parts := strings.Split(line, ">>")
+			if len(parts) == 2 {
+				handler(parts[0], parts[1])
+			}
 		}
 	}
-
-	return scanner.Err()
 }
