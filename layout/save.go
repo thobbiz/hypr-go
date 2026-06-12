@@ -14,8 +14,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func SaveWorkspace(id int, name string) error {
-	windows, err := getWorkspaceWindows(id)
+func SaveWorkspace(id *int, name string) error {
+	var ID *int
+	var err error
+	if id == nil {
+		ID, err = getCurrentWorkspaceId()
+		if err != nil {
+			return err
+		}
+	} else {
+		ID = id
+	}
+
+	windows, err := getWorkspaceWindows(*ID)
 	if err != nil {
 		return err
 	}
@@ -101,4 +112,16 @@ func getCommandFromPID(pid int) (string, error) {
 
 	exe, _, _ := strings.Cut(string(parts[0]), " ")
 	return exe, nil
+}
+
+func getCurrentWorkspaceId() (*int, error) {
+	raw, err := ipc.SendCommand("j/activeworkspace")
+	if err != nil {
+		return nil, err
+	}
+	var ws ipc.Workspace
+	if err := json.Unmarshal([]byte(raw), &ws); err != nil {
+		return nil, err
+	}
+	return &ws.ID, nil
 }
