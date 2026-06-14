@@ -51,7 +51,7 @@ func saveLayoutAsYaml(layout Layout) error {
 		log.Fatal(err)
 	}
 
-	name := fmt.Sprintf("./data/%s.yaml", layout.Name)
+	name := fmt.Sprintf("./data/workspace/%s.yaml", layout.Name)
 	err = os.WriteFile(name, data, 0644)
 	if err != nil {
 		return fmt.Errorf("Error creating file: %v", err)
