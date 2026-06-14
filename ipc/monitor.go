@@ -6,9 +6,12 @@ type Monitor struct {
 	Height           int       `json:"height"`
 	Width            int       `json:"width"`
 	RefreshRate      float64   `json:"refreshRate"`
+	X                int       `json:"x"`
+	Y                int       `json:"y"`
+	Scale            float64   `json:"scale"`
+	Transform        int       `yaml:"transform"`
+	Focused          bool      `json:"focused"`
 	ActiveWorkspace  Workspace `json:"activeWorkspace"`
 	SpecialWorkspace Workspace `json:"specialWorkspace"`
-	Scale            float64   `json:"scale"`
-	Focused          bool      `json:"focused"`
 	DpmsStatus       bool      `json:"dpmsStatus"`
 }
