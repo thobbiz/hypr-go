@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
@@ -38,40 +39,45 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 			}
 		})
 
-		address := <-found
-		log.Printf("address = %s          name = %s", address, w.Class)
-
 		if workspaceID != nil {
 			w.Workspace = *workspaceID
 		}
 
-		if w.Floating {
-			err := setFloatingToTrue(address)
-			if err != nil {
-				log.Fatal(err)
-			}
+		select {
+		case address := <-found:
+			log.Printf("address = %s----name = %s", address, w.Class)
 
-			err = dispatchWindow(address, w.Workspace)
-			if err != nil {
-				log.Fatal(err)
-			}
+			if w.Floating {
+				err := setFloatingToTrue(address)
+				if err != nil {
+					log.Fatal(err)
+				}
 
-			err = resizeWindow(address, w.Width, w.Height)
-			if err != nil {
-				log.Fatal(err)
-			}
+				err = dispatchWindow(address, w.Workspace)
+				if err != nil {
+					log.Fatal(err)
+				}
 
-			err = moveWindow(address, w.X, w.Y)
-			if err != nil {
-				log.Fatal(err)
+				err = resizeWindow(address, w.Width, w.Height)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				err = moveWindow(address, w.X, w.Y)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				err := dispatchWindow(address, w.Workspace)
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
-		} else {
-			err := dispatchWindow(address, w.Workspace)
-			if err != nil {
-				log.Fatal(err)
-			}
+		case <-time.After(10 * time.Second):
+			log.Printf("timeout waiting for %s, skipping", w.Class)
+			close(done)
+			continue
 		}
-
 	}
 
 	return nil

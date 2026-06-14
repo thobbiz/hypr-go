@@ -12,20 +12,20 @@ import (
 
 // saveCmd represents the save command
 var saveCmd = &cobra.Command{
-	Use:   "save <name> <workspaceNumber>",
-	Short: "Save specified workspace layout",
+	Use:   "save <name> <workspace id>",
+	Short: "Saves specified workspace layout",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		var id *int
+		var workspaceID *int
 		if len(args) == 2 {
 			n, err := strconv.Atoi(args[1])
 			if err != nil {
 				return err
 			}
-			id = &n
+			workspaceID = &n
 		}
-		return layout.SaveWorkspace(id, name)
+		return layout.SaveWorkspace(workspaceID, name)
 	},
 }
 
