@@ -90,7 +90,7 @@ func LaunchAppFromCmd(entry WindowEntry) {
 }
 
 func decodeYaml(filename string) (*Layout, error) {
-	name := fmt.Sprintf("./data/%s.yaml", filename)
+	name := fmt.Sprintf("./data/workspace/%s.yaml", filename)
 	f, err := os.ReadFile(name)
 	if err != nil {
 		return nil, err
