@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/thobbiz/hypr-go/cmd/monitor"
 	"github.com/thobbiz/hypr-go/cmd/workspace"
 )
 
@@ -36,6 +37,7 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(workspace.WorkspaceCmd)
+	rootCmd.AddCommand(monitor.MonitorCmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
