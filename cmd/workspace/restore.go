@@ -1,13 +1,13 @@
 /*
 Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 */
-package layout
+package workspace
 
 import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"github.com/thobbiz/hypr-go/layout"
+	"github.com/thobbiz/hypr-go/workspace"
 )
 
 // restoreCmd represents the restore command
@@ -25,7 +25,7 @@ var restoreCmd = &cobra.Command{
 			}
 			workspaceID = &n
 		}
-		return layout.RestoreWorkspace(name, workspaceID)
+		return workspace.RestoreWorkspace(name, workspaceID)
 	},
 }
 

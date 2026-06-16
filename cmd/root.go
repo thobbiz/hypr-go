@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/thobbiz/hypr-go/cmd/layout"
+	"github.com/thobbiz/hypr-go/cmd/workspace"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -35,7 +35,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(layout.LayoutCmd)
+	rootCmd.AddCommand(workspace.WorkspaceCmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.

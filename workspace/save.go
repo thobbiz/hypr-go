@@ -1,4 +1,4 @@
-package layout
+package workspace
 
 import (
 	"bytes"
