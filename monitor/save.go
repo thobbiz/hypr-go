@@ -13,7 +13,7 @@ import (
 )
 
 func SaveMonitor(name string) error {
-	monitor, err := getMonitor(name)
+	monitors, err := getMonitors()
 	if err != nil {
 		return err
 	}
@@ -21,7 +21,7 @@ func SaveMonitor(name string) error {
 	monitorLayout := MonitorLayout{
 		Name:     name,
 		SavedAt:  time.Now(),
-		Monitors: *monitor,
+		Monitors: *monitors,
 	}
 
 	err = saveMonitorAsYaml(monitorLayout)
@@ -47,7 +47,7 @@ func saveMonitorAsYaml(monitorLayout MonitorLayout) error {
 	return nil
 }
 
-func getMonitor(name string) (*[]MonitorEntry, error) {
+func getMonitors() (*[]MonitorEntry, error) {
 	resp, err := ipc.SendCommand("j/monitors")
 	if err != nil {
 		log.Fatal(err)
@@ -61,19 +61,17 @@ func getMonitor(name string) (*[]MonitorEntry, error) {
 	var result []MonitorEntry
 
 	for _, m := range monitors {
-		if m.Name == name {
-			anon := MonitorEntry{
-				Name:        name,
-				Width:       m.Width,
-				Height:      m.Height,
-				RefreshRate: m.RefreshRate,
-				PosX:        m.X,
-				PosY:        m.Y,
-				Scale:       m.Scale,
-				Transform:   m.Transform,
-			}
-			result = append(result, anon)
+		anon := MonitorEntry{
+			Name:        m.Name,
+			Width:       m.Width,
+			Height:      m.Height,
+			RefreshRate: m.RefreshRate,
+			PosX:        m.X,
+			PosY:        m.Y,
+			Scale:       m.Scale,
+			Transform:   m.Transform,
 		}
+		result = append(result, anon)
 	}
 
 	if len(result) == 0 {
