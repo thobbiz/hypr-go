@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/thobbiz/hypr-go/hyprerr"
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
 )
@@ -26,13 +27,13 @@ func decodeYaml(filename string) (*MonitorLayout, error) {
 	name := fmt.Sprintf("./data/monitor/%s.yaml", filename)
 	f, err := os.ReadFile(name)
 	if err != nil {
-		return nil, err
+		return nil, hyprerr.New("decodeYaml", hyprerr.ErrIO, err)
 	}
 
 	var layout MonitorLayout
 
 	if err := yaml.Unmarshal(f, &layout); err != nil {
-		return nil, err
+		return nil, hyprerr.New("decodeYaml", hyprerr.ErrParse, err)
 	}
 
 	return &layout, nil
@@ -43,10 +44,10 @@ func launchMonitor(m MonitorEntry) error {
 		m.Name, m.Width, m.Height, m.RefreshRate, m.PosX, m.PosY, m.Scale)
 	resp, err := ipc.SendCommand(cmd)
 	if err != nil {
-		return err
+		return hyprerr.New("launchMonitor", hyprerr.ErrIPC, err)
 	}
 	if resp != "ok" {
-		return fmt.Errorf("monitor restore failed for %s: %s", m.Name, resp)
+		return hyprerr.New("launchMonitor", hyprerr.ErrIPC, fmt.Errorf("monitor restore failed for %s: %s", m.Name, resp))
 	}
 
 	return nil

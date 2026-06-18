@@ -17,18 +17,18 @@ func SendCommand(command string) (string, error) {
 
 	conn, err := net.Dial("unix", path)
 	if err != nil {
-		return "", fmt.Errorf("Error creating connection: %v", err)
+		return "", fmt.Errorf("failed to create connection: %v", err)
 	}
 	defer conn.Close()
 
 	_, err = conn.Write([]byte(command))
 	if err != nil {
-		return "", fmt.Errorf("Error writing command connection: %v", err)
+		return "", fmt.Errorf("failed to write to connection: %v", err)
 	}
 
 	data, err := io.ReadAll(conn)
 	if err != nil {
-		return string(data), fmt.Errorf("Error reading from socket: %v", err)
+		return string(data), fmt.Errorf("failed to read from connection: %v", err)
 	}
 
 	return string(data), nil
@@ -40,7 +40,7 @@ func ListenEvents(done chan struct{}, handler func(event, data string)) error {
 	path := fmt.Sprintf("%s/hypr/%s/.socket2.sock", xdg, his)
 	conn, err := net.Dial("unix", path)
 	if err != nil {
-		return fmt.Errorf("Error creating connection: %v", err)
+		return fmt.Errorf("failed to create connection: %v", err)
 	}
 	defer conn.Close()
 

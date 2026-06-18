@@ -3,13 +3,12 @@ package workspace
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/thobbiz/hypr-go/hyprerr"
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
 )
@@ -48,13 +47,13 @@ func SaveWorkspace(id *int, name string) error {
 func saveLayoutAsYaml(layout Layout) error {
 	data, err := yaml.Marshal(layout)
 	if err != nil {
-		log.Fatal(err)
+		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrParse, err)
 	}
 
 	name := fmt.Sprintf("./data/workspace/%s.yaml", layout.Name)
 	err = os.WriteFile(name, data, 0644)
 	if err != nil {
-		return fmt.Errorf("Error creating file: %v", err)
+		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrIO, err)
 	}
 
 	return nil
@@ -63,12 +62,12 @@ func saveLayoutAsYaml(layout Layout) error {
 func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 	resp, err := ipc.SendCommand("j/clients")
 	if err != nil {
-		log.Fatal(err)
+		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrIPC, err)
 	}
 
 	var windows []ipc.Window
 	if err := json.Unmarshal([]byte(resp), &windows); err != nil {
-		return nil, err
+		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrParse, err)
 	}
 
 	var result []WindowEntry
@@ -94,7 +93,7 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 	}
 
 	if len(result) == 0 {
-		return nil, errors.New("workspace not found")
+		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrNotFound, fmt.Errorf("no windows found on workspace %d", id))
 	}
 	return &result, nil
 }
@@ -102,12 +101,12 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 func getCommandFromPID(pid int) (string, error) {
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
 	if err != nil {
-		return "", err
+		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrIO, err)
 	}
 
 	parts := bytes.Split(data, []byte{0})
 	if len(parts) == 0 || len(parts[0]) == 0 {
-		return "", fmt.Errorf("empty cmdline for pid %d", pid)
+		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrParse, fmt.Errorf("empty cmdline for pid %d", pid))
 	}
 
 	exe, _, _ := strings.Cut(string(parts[0]), " ")
@@ -117,11 +116,11 @@ func getCommandFromPID(pid int) (string, error) {
 func getCurrentWorkspaceId() (*int, error) {
 	raw, err := ipc.SendCommand("j/activeworkspace")
 	if err != nil {
-		return nil, err
+		return nil, hyprerr.New("getCurrentWorkspaceId", hyprerr.ErrIPC, err)
 	}
 	var ws ipc.Workspace
 	if err := json.Unmarshal([]byte(raw), &ws); err != nil {
-		return nil, err
+		return nil, hyprerr.New("getCurrentWorkspaceId", hyprerr.ErrParse, err)
 	}
 	return &ws.ID, nil
 }

@@ -2,12 +2,11 @@ package monitor
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
+	"github.com/thobbiz/hypr-go/hyprerr"
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
 )
@@ -35,13 +34,13 @@ func SaveMonitor(name string) error {
 func saveMonitorAsYaml(monitorLayout MonitorLayout) error {
 	data, err := yaml.Marshal(monitorLayout)
 	if err != nil {
-		log.Fatal(err)
+		return hyprerr.New("saveMonitorAsYaml", hyprerr.ErrParse, err)
 	}
 
 	name := fmt.Sprintf("./data/monitor/%s.yaml", monitorLayout.Name)
 	err = os.WriteFile(name, data, 0644)
 	if err != nil {
-		return fmt.Errorf("Error creating file: %v", err)
+		return hyprerr.New("saveMonitorAsYaml", hyprerr.ErrIO, err)
 	}
 
 	return nil
@@ -50,12 +49,12 @@ func saveMonitorAsYaml(monitorLayout MonitorLayout) error {
 func getMonitors() (*[]MonitorEntry, error) {
 	resp, err := ipc.SendCommand("j/monitors")
 	if err != nil {
-		log.Fatal(err)
+		return nil, hyprerr.New("getMonitors", hyprerr.ErrIPC, err)
 	}
 
 	var monitors []ipc.Monitor
 	if err := json.Unmarshal([]byte(resp), &monitors); err != nil {
-		return nil, err
+		return nil, hyprerr.New("getMonitors", hyprerr.ErrParse, err)
 	}
 
 	var result []MonitorEntry
@@ -75,7 +74,7 @@ func getMonitors() (*[]MonitorEntry, error) {
 	}
 
 	if len(result) == 0 {
-		return nil, errors.New("monitor not found")
+		return nil, hyprerr.New("getMonitors", hyprerr.ErrNotFound, fmt.Errorf("no monitors found"))
 	}
 	return &result, nil
 }
