@@ -2,11 +2,13 @@ package ipc
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 func SendCommand(command string) (string, error) {
@@ -34,7 +36,7 @@ func SendCommand(command string) (string, error) {
 	return string(data), nil
 }
 
-func ListenEvents(done chan struct{}, handler func(event, data string)) error {
+func ListenEvents(ctx context.Context, handler func(event, data string)) error {
 	his := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
 	xdg := os.Getenv("XDG_RUNTIME_DIR")
 	path := fmt.Sprintf("%s/hypr/%s/.socket2.sock", xdg, his)
@@ -44,20 +46,21 @@ func ListenEvents(done chan struct{}, handler func(event, data string)) error {
 	}
 	defer conn.Close()
 
+	go func() {
+		<-ctx.Done()
+		conn.SetReadDeadline(time.Now())
+	}()
+
 	scanner := bufio.NewScanner(conn)
-	for {
-		select {
-		case <-done:
-			return nil
-		default:
-			if !scanner.Scan() {
-				return scanner.Err()
-			}
-			line := scanner.Text()
-			parts := strings.Split(line, ">>")
-			if len(parts) == 2 {
-				handler(parts[0], parts[1])
-			}
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, ">>", 2)
+		if len(parts) == 2 {
+			handler(parts[0], parts[1])
 		}
 	}
+	if ctx.Err() != nil {
+		return nil
+	}
+	return scanner.Err()
 }

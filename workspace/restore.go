@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -17,7 +18,6 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 	if workspaceID != nil && *workspaceID <= 0 {
 		return hyprerr.New("RestoreWorkspace", hyprerr.ErrInvalidInput, fmt.Errorf("workspace id cannot be zero(0) or negative"))
 	}
-
 	saved, err := decodeYaml(name)
 	if err != nil {
 		return err
@@ -25,19 +25,21 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 
 	for _, w := range saved.Windows {
 		LaunchAppFromCmd(w)
-		found := make(chan string, 1)
-		done := make(chan struct{})
 
-		go ipc.ListenEvents(done, func(event, data string) {
-			if event == "openwindow" {
-				parts := strings.SplitN(data, ",", 4)
-				class := parts[2]
-				if class == w.Class {
-					found <- parts[0]
-					close(done)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		found := make(chan string, 1)
+
+		go func(targetClass string) {
+			_ = ipc.ListenEvents(ctx, func(event, data string) {
+				if event == "openwindow" {
+					parts := strings.SplitN(data, ",", 4)
+					if len(parts) >= 3 && parts[2] == targetClass {
+						found <- parts[0]
+						cancel()
+					}
 				}
-			}
-		})
+			})
+		}(w.Class)
 
 		if workspaceID != nil {
 			w.Workspace = *workspaceID
@@ -45,6 +47,7 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 
 		select {
 		case address := <-found:
+			cancel()
 			log.Printf("address = %s----name = %s", address, w.Class)
 
 			if w.Floating {
@@ -52,17 +55,14 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 				if err != nil {
 					log.Println(err)
 				}
-
 				err = dispatchWindow(address, w.Workspace)
 				if err != nil {
 					log.Println(err)
 				}
-
 				err = resizeWindow(address, w.Width, w.Height)
 				if err != nil {
 					log.Println(err)
 				}
-
 				err = moveWindow(address, w.X, w.Y)
 				if err != nil {
 					log.Println(err)
@@ -73,13 +73,12 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 					log.Println(err)
 				}
 			}
-		case <-time.After(10 * time.Second):
+		case <-ctx.Done():
+			cancel()
 			log.Printf("timeout waiting for %s, skipping", w.Class)
-			close(done)
 			continue
 		}
 	}
-
 	return nil
 }
 
