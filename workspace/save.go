@@ -1,10 +1,13 @@
 package workspace
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +15,8 @@ import (
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
 )
+
+var XDGFIELDCODES = regexp.MustCompile(`%[fFuUdDnNickvm]`)
 
 func SaveWorkspace(id *int, name string) error {
 	var ID *int
@@ -74,13 +79,13 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 
 	for _, w := range windows {
 		if w.Workspace.ID == id {
-			command, err := getCommandFromPID(w.PID)
+			exec, err := getExecCommand(w)
 			if err != nil {
 				return nil, err
 			}
 			anon := WindowEntry{
 				Class:     w.Class,
-				Cmd:       command,
+				Exec:      exec,
 				Workspace: w.Workspace.ID,
 				X:         w.At[0],
 				Y:         w.At[1],
@@ -98,19 +103,24 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 	return &result, nil
 }
 
-func getCommandFromPID(pid int) (string, error) {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-	if err != nil {
-		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrIO, err)
+func getExecCommand(w ipc.Window) (string, error) {
+	dirs := getDesktopDirs()
+
+	desktopFile := findDesktopFile(w.Class, dirs)
+	if desktopFile == "" && w.InitialClass != "" {
+		desktopFile = findDesktopFile(w.InitialClass, dirs)
 	}
 
-	parts := bytes.Split(data, []byte{0})
-	if len(parts) == 0 || len(parts[0]) == 0 {
-		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrParse, fmt.Errorf("empty cmdline for pid %d", pid))
+	execCmd := ""
+	if desktopFile != "" {
+		execCmd = extractExec(desktopFile)
 	}
 
-	exe, _, _ := strings.Cut(string(parts[0]), " ")
-	return exe, nil
+	if execCmd != "" {
+		return execCmd, nil
+	} else {
+		return "", errors.New("exec command not found")
+	}
 }
 
 func getCurrentWorkspaceId() (*int, error) {
@@ -123,4 +133,91 @@ func getCurrentWorkspaceId() (*int, error) {
 		return nil, hyprerr.New("getCurrentWorkspaceId", hyprerr.ErrParse, err)
 	}
 	return &ws.ID, nil
+}
+
+func getDesktopDirs() []string {
+	home, _ := os.UserHomeDir()
+	return []string{
+		filepath.Join(home, ".local/share/applications"),
+		"/usr/share/applications",
+		"/usr/local/share/applications",
+		"/var/lib/flatpak/exports/share/applications",
+		filepath.Join(home, ".local/share/flatpak/exports/share/applications"),
+	}
+}
+
+// extractExec parses the Exec line from the [Desktop Entry] section
+func extractExec(path string) string {
+	file, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	inDesktopEntry := false
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			inDesktopEntry = (line == "[Desktop Entry]")
+			continue
+		}
+
+		if inDesktopEntry && strings.HasPrefix(line, "Exec=") {
+			cmd := strings.TrimPrefix(line, "Exec=")
+			// Remove XDG field codes (%u, %F, etc.)
+			cmd = XDGFIELDCODES.ReplaceAllString(cmd, "")
+			return strings.TrimSpace(cmd)
+		}
+	}
+	return ""
+}
+
+// findDesktopFile attempts to match class against StartupWMClass or filename
+func findDesktopFile(targetClass string, dirs []string) string {
+	if targetClass == "" {
+		return ""
+	}
+
+	var fallbackMatch string
+
+	for _, dir := range dirs {
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range files {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".desktop") {
+				continue
+			}
+
+			fullPath := filepath.Join(dir, entry.Name())
+			fileBytes, err := os.ReadFile(fullPath)
+			if err != nil {
+				continue
+			}
+			content := string(fileBytes)
+
+			// Direct match on StartupWMClass
+			startupWMRegex := regexp.MustCompile(`(?m)^StartupWMClass=(?i:` + regexp.QuoteMeta(targetClass) + `)$`)
+			if startupWMRegex.MatchString(content) {
+				return fullPath
+			}
+
+			// Direct match on filename
+			base := strings.TrimSuffix(entry.Name(), ".desktop")
+			if strings.EqualFold(base, targetClass) {
+				return fullPath
+			}
+
+			// Fallback partial match if nothing exact found
+			if fallbackMatch == "" && strings.Contains(strings.ToLower(base), strings.ToLower(targetClass)) {
+				fallbackMatch = fullPath
+			}
+		}
+	}
+
+	return fallbackMatch
 }

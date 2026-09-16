@@ -24,7 +24,7 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 	}
 
 	for _, w := range saved.Windows {
-		LaunchAppFromCmd(w)
+		launchAppFromExec(w.Exec)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		found := make(chan string, 1)
@@ -82,8 +82,8 @@ func RestoreWorkspace(name string, workspaceID *int) error {
 	return nil
 }
 
-func LaunchAppFromCmd(entry WindowEntry) {
-	parts := strings.Fields(entry.Cmd)
+func launchAppFromExec(cmdStr string) {
+	parts := strings.Fields(cmdStr)
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Start()
 }
