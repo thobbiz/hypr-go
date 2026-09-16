@@ -3,6 +3,7 @@ package ipc
 type Window struct {
 	Address        string          `json:"address"`
 	Class          string          `json:"class"`
+	InitialClass   string          `json:"initialClass"`
 	Mapped         bool            `json:"mapped"`
 	Hidden         bool            `json:"hidden"`
 	At             [2]int          `json:"at"`
