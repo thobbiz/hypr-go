@@ -2,9 +2,10 @@ package workspace
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -72,7 +73,7 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 
 	var windows []ipc.Window
 	if err := json.Unmarshal([]byte(resp), &windows); err != nil {
-		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrParse, err)
+		return nil, hyprerr.New("unmarshalJSON", hyprerr.ErrParse, err)
 	}
 
 	var result []WindowEntry
@@ -81,7 +82,7 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 		if w.Workspace.ID == id {
 			exec, err := getExecCommand(w)
 			if err != nil {
-				return nil, err
+				return nil, hyprerr.New("getExecCommand", hyprerr.ErrNotFound, err)
 			}
 			anon := WindowEntry{
 				Class:     w.Class,
@@ -116,11 +117,16 @@ func getExecCommand(w ipc.Window) (string, error) {
 		execCmd = extractExec(desktopFile)
 	}
 
-	if execCmd != "" {
+	if execCmd == "" {
+		log.Printf("%v couldn't extract exec from desktop, switching to pid...", w.Class)
+		execCmd, err := getCommandFromPID(w.PID)
+		if err != nil {
+			return "", fmt.Errorf("exec command not found for %v", w.Class)
+		}
 		return execCmd, nil
-	} else {
-		return "", errors.New("exec command not found")
 	}
+
+	return execCmd, nil
 }
 
 func getCurrentWorkspaceId() (*int, error) {
@@ -133,6 +139,21 @@ func getCurrentWorkspaceId() (*int, error) {
 		return nil, hyprerr.New("getCurrentWorkspaceId", hyprerr.ErrParse, err)
 	}
 	return &ws.ID, nil
+}
+
+func getCommandFromPID(pid int) (string, error) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrIO, err)
+	}
+
+	parts := bytes.Split(data, []byte{0})
+	if len(parts) == 0 || len(parts[0]) == 0 {
+		return "", hyprerr.New("getCommandFromPID", hyprerr.ErrParse, fmt.Errorf("empty cmdline for pid %d", pid))
+	}
+
+	exe, _, _ := strings.Cut(string(parts[0]), " ")
+	return exe, nil
 }
 
 func getDesktopDirs() []string {
