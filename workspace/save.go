@@ -38,7 +38,7 @@ func SaveWorkspace(id *int, name string, dir string) error {
 		return err
 	}
 
-	layout := Layout{
+	layout := WorkspaceLayout{
 		Name:    name,
 		SavedAt: time.Now(),
 		Windows: *windows,
@@ -48,7 +48,7 @@ func SaveWorkspace(id *int, name string, dir string) error {
 
 }
 
-func saveLayoutAsYaml(layout Layout, path string) error {
+func saveLayoutAsYaml(layout WorkspaceLayout, path string) error {
 	data, err := yaml.Marshal(layout)
 	if err != nil {
 		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrParse, err)

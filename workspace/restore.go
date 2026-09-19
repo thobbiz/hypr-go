@@ -88,7 +88,7 @@ func launchAppFromExec(cmdStr string) {
 	cmd.Start()
 }
 
-func decodeYaml(name, dir string) (*Layout, error) {
+func decodeYaml(name, dir string) (*WorkspaceLayout, error) {
 	path, err := LayoutPath(dir, name)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func decodeYaml(name, dir string) (*Layout, error) {
 		return nil, hyprerr.New("decodeYaml", hyprerr.ErrIO, err)
 	}
 
-	var layout Layout
+	var layout WorkspaceLayout
 
 	if err := yaml.Unmarshal(f, &layout); err != nil {
 		return nil, hyprerr.New("decodeYaml", hyprerr.ErrParse, err)

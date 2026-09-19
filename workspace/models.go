@@ -13,7 +13,7 @@ type WindowEntry struct {
 	Floating  bool   `yaml:"floating"`
 }
 
-type Layout struct {
+type WorkspaceLayout struct {
 	Name    string        `yaml:"name"`
 	SavedAt time.Time     `yaml:"saved_at"`
 	Windows []WindowEntry `yaml:"windows"`
