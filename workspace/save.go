@@ -44,11 +44,11 @@ func SaveWorkspace(id *int, name string, dir string) error {
 		Windows: *windows,
 	}
 
-	return saveLayoutAsYaml(layout, path)
+	return saveWorkspaceLayoutAsYaml(layout, path)
 
 }
 
-func saveLayoutAsYaml(layout WorkspaceLayout, path string) error {
+func saveWorkspaceLayoutAsYaml(layout WorkspaceLayout, path string) error {
 	data, err := yaml.Marshal(layout)
 	if err != nil {
 		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrParse, err)
