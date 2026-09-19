@@ -1,23 +1,19 @@
 package workspace
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
+	"github.com/thobbiz/hypr-go/appindex"
 	"github.com/thobbiz/hypr-go/hyprerr"
 	"github.com/thobbiz/hypr-go/ipc"
 	"gopkg.in/yaml.v3"
 )
-
-var XDGFIELDCODES = regexp.MustCompile(`%[fFuUdDnNickvm]`)
 
 func SaveWorkspace(id *int, name string) error {
 	var ID *int
@@ -76,57 +72,71 @@ func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
 		return nil, hyprerr.New("unmarshalJSON", hyprerr.ErrParse, err)
 	}
 
-	var result []WindowEntry
+	var onWorkspace []ipc.Window
+	seen := map[string]struct{}{}
+	var classes []string
+	addClass := func(c string) {
+		if c == "" {
+			return
+		}
+		if _, ok := seen[c]; !ok {
+			seen[c] = struct{}{}
+			classes = append(classes, c)
+		}
+	}
 
 	for _, w := range windows {
-		if w.Workspace.ID == id {
-			exec, err := getExecCommand(w)
-			if err != nil {
-				return nil, hyprerr.New("getExecCommand", hyprerr.ErrNotFound, err)
-			}
-			anon := WindowEntry{
-				Class:     w.Class,
-				Exec:      exec,
-				Workspace: w.Workspace.ID,
-				X:         w.At[0],
-				Y:         w.At[1],
-				Width:     w.Size[0],
-				Height:    w.Size[1],
-				Floating:  w.Floating,
-			}
-			result = append(result, anon)
+		if w.Workspace.ID != id {
+			continue
 		}
+		onWorkspace = append(onWorkspace, w)
+		addClass(w.Class)
+		addClass(w.InitialClass)
+	}
+
+	if len(onWorkspace) == 0 {
+		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrNotFound, fmt.Errorf("no windows found on workspace %d", id))
+	}
+
+	execs, err := appindex.ResolveExecs(classes)
+	if err != nil {
+		// Not fatal: every window still gets the pid fallback below.
+		log.Printf("desktop file resolution failed: %v", err)
+	}
+
+	var result []WindowEntry
+	for _, w := range onWorkspace {
+		exec := execs[w.Class]
+		if exec == "" {
+			exec = execs[w.InitialClass]
+		}
+
+		if exec == "" {
+			log.Printf("%s: no desktop entry, falling back to pid %d", w.Class, w.PID)
+			exec, err = getCommandFromPID(w.PID)
+			if err != nil {
+				log.Printf("skipping %s: %v", w.Class, err)
+				continue
+			}
+		}
+
+		result = append(result, WindowEntry{
+			Class:     w.Class,
+			Exec:      exec,
+			Workspace: w.Workspace.ID,
+			X:         w.At[0],
+			Y:         w.At[1],
+			Width:     w.Size[0],
+			Height:    w.Size[1],
+			Floating:  w.Floating,
+		})
 	}
 
 	if len(result) == 0 {
-		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrNotFound, fmt.Errorf("no windows found on workspace %d", id))
+		return nil, hyprerr.New("getWorkspaceWindows", hyprerr.ErrNotFound, fmt.Errorf("no launchable windows on workspace %d", id))
 	}
+
 	return &result, nil
-}
-
-func getExecCommand(w ipc.Window) (string, error) {
-	dirs := getDesktopDirs()
-
-	desktopFile := findDesktopFile(w.Class, dirs)
-	if desktopFile == "" && w.InitialClass != "" {
-		desktopFile = findDesktopFile(w.InitialClass, dirs)
-	}
-
-	execCmd := ""
-	if desktopFile != "" {
-		execCmd = extractExec(desktopFile)
-	}
-
-	if execCmd == "" {
-		log.Printf("%v couldn't extract exec from desktop, switching to pid...", w.Class)
-		execCmd, err := getCommandFromPID(w.PID)
-		if err != nil {
-			return "", fmt.Errorf("exec command not found for %v", w.Class)
-		}
-		return execCmd, nil
-	}
-
-	return execCmd, nil
 }
 
 func getCurrentWorkspaceId() (*int, error) {
@@ -154,91 +164,4 @@ func getCommandFromPID(pid int) (string, error) {
 
 	exe, _, _ := strings.Cut(string(parts[0]), " ")
 	return exe, nil
-}
-
-func getDesktopDirs() []string {
-	home, _ := os.UserHomeDir()
-	return []string{
-		filepath.Join(home, ".local/share/applications"),
-		"/usr/share/applications",
-		"/usr/local/share/applications",
-		"/var/lib/flatpak/exports/share/applications",
-		filepath.Join(home, ".local/share/flatpak/exports/share/applications"),
-	}
-}
-
-// extractExec parses the Exec line from the [Desktop Entry] section
-func extractExec(path string) string {
-	file, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	inDesktopEntry := false
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			inDesktopEntry = (line == "[Desktop Entry]")
-			continue
-		}
-
-		if inDesktopEntry && strings.HasPrefix(line, "Exec=") {
-			cmd := strings.TrimPrefix(line, "Exec=")
-			// Remove XDG field codes (%u, %F, etc.)
-			cmd = XDGFIELDCODES.ReplaceAllString(cmd, "")
-			return strings.TrimSpace(cmd)
-		}
-	}
-	return ""
-}
-
-// findDesktopFile attempts to match class against StartupWMClass or filename
-func findDesktopFile(targetClass string, dirs []string) string {
-	if targetClass == "" {
-		return ""
-	}
-
-	var fallbackMatch string
-
-	for _, dir := range dirs {
-		files, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range files {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".desktop") {
-				continue
-			}
-
-			fullPath := filepath.Join(dir, entry.Name())
-			fileBytes, err := os.ReadFile(fullPath)
-			if err != nil {
-				continue
-			}
-			content := string(fileBytes)
-
-			// Direct match on StartupWMClass
-			startupWMRegex := regexp.MustCompile(`(?m)^StartupWMClass=(?i:` + regexp.QuoteMeta(targetClass) + `)$`)
-			if startupWMRegex.MatchString(content) {
-				return fullPath
-			}
-
-			// Direct match on filename
-			base := strings.TrimSuffix(entry.Name(), ".desktop")
-			if strings.EqualFold(base, targetClass) {
-				return fullPath
-			}
-
-			// Fallback partial match if nothing exact found
-			if fallbackMatch == "" && strings.Contains(strings.ToLower(base), strings.ToLower(targetClass)) {
-				fallbackMatch = fullPath
-			}
-		}
-	}
-
-	return fallbackMatch
 }
