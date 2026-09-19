@@ -186,7 +186,6 @@ func LayoutPath(dir, name string) (string, error) {
 
 func validateName(name string) error {
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
-		log.Println(name)
 		return hyprerr.New("validateName", hyprerr.ErrInvalidInput, fmt.Errorf("invalid layout name %q", name))
 	}
 	return nil
