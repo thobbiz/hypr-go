@@ -51,15 +51,15 @@ func SaveWorkspace(id *int, name string, dir string) error {
 func saveWorkspaceLayoutAsYaml(layout WorkspaceLayout, path string) error {
 	data, err := yaml.Marshal(layout)
 	if err != nil {
-		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrParse, err)
+		return hyprerr.New("saveWorkspaceLayoutAsYaml", hyprerr.ErrParse, err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrIO, err)
+		return hyprerr.New("saveWorkspaceLayoutAsYaml", hyprerr.ErrIO, err)
 	}
 
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrIO, err)
+		return hyprerr.New("saveWorkspaceLayoutAsYaml", hyprerr.ErrIO, err)
 	}
 
 	return nil
