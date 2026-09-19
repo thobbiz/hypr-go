@@ -14,11 +14,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func RestoreWorkspace(name string, workspaceID *int) error {
+func RestoreWorkspace(name, dir string, workspaceID *int) error {
 	if workspaceID != nil && *workspaceID <= 0 {
 		return hyprerr.New("RestoreWorkspace", hyprerr.ErrInvalidInput, fmt.Errorf("workspace id cannot be zero(0) or negative"))
 	}
-	saved, err := decodeYaml(name)
+	saved, err := decodeYaml(name, dir)
 	if err != nil {
 		return err
 	}
@@ -88,9 +88,13 @@ func launchAppFromExec(cmdStr string) {
 	cmd.Start()
 }
 
-func decodeYaml(filename string) (*Layout, error) {
-	name := fmt.Sprintf("./data/workspace/%s.yaml", filename)
-	f, err := os.ReadFile(name)
+func decodeYaml(name, dir string) (*Layout, error) {
+	path, err := LayoutPath(dir, name)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, hyprerr.New("decodeYaml", hyprerr.ErrIO, err)
 	}

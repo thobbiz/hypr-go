@@ -22,6 +22,8 @@ func init() {
 	WorkspaceCmd.AddCommand(saveCmd)
 	WorkspaceCmd.AddCommand(restoreCmd)
 
+	WorkspaceCmd.PersistentFlags().String("dir", "", "directory for layout files (default: $XDG_DATA_HOME/hypr-go/workspace)")
+
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

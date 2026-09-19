@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,19 +16,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func SaveWorkspace(id *int, name string) error {
-	var ID *int
-	var err error
+func SaveWorkspace(id *int, name string, dir string) error {
+	path, err := LayoutPath(dir, name)
+	if err != nil {
+		return err
+	}
+
+	var wsID int
 	if id == nil {
-		ID, err = getCurrentWorkspaceId()
+		current, err := getCurrentWorkspaceId()
 		if err != nil {
 			return err
 		}
+		wsID = *current
 	} else {
-		ID = id
+		wsID = *id
 	}
 
-	windows, err := getWorkspaceWindows(*ID)
+	windows, err := getWorkspaceWindows(wsID)
 	if err != nil {
 		return err
 	}
@@ -38,27 +44,26 @@ func SaveWorkspace(id *int, name string) error {
 		Windows: *windows,
 	}
 
-	err = saveLayoutAsYaml(layout)
-	if err != nil {
-		return err
-	}
+	return saveLayoutAsYaml(layout, path)
 
-	return nil
 }
 
-func saveLayoutAsYaml(layout Layout) error {
+func saveLayoutAsYaml(layout Layout, path string) error {
 	data, err := yaml.Marshal(layout)
 	if err != nil {
 		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrParse, err)
 	}
 
-	name := fmt.Sprintf("./data/workspace/%s.yaml", layout.Name)
-	err = os.WriteFile(name, data, 0644)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrIO, err)
+	}
+
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return hyprerr.New("saveLayoutAsYaml", hyprerr.ErrIO, err)
 	}
 
 	return nil
+
 }
 
 func getWorkspaceWindows(id int) (*[]WindowEntry, error) {
@@ -164,4 +169,57 @@ func getCommandFromPID(pid int) (string, error) {
 
 	exe, _, _ := strings.Cut(string(parts[0]), " ")
 	return exe, nil
+}
+
+func LayoutPath(dir, name string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", err
+	}
+
+	base, err := resolveDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(base, name+".yaml"), nil
+}
+
+func validateName(name string) error {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		log.Println(name)
+		return hyprerr.New("validateName", hyprerr.ErrInvalidInput, fmt.Errorf("invalid layout name %q", name))
+	}
+	return nil
+}
+
+func resolveDir(dir string) (string, error) {
+	if dir == "" {
+		return defaultDir()
+	}
+
+	if dir == "~" || strings.HasPrefix(dir, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", hyprerr.New("resolveDir", hyprerr.ErrIO, err)
+		}
+		dir = filepath.Join(home, strings.TrimPrefix(dir, "~"))
+	}
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", hyprerr.New("resolveDir", hyprerr.ErrIO, err)
+	}
+	return abs, nil
+}
+
+func defaultDir() (string, error) {
+	base := os.Getenv("XDG_DATA_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", hyprerr.New("defaultDir", hyprerr.ErrIO, err)
+		}
+		base = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(base, "hypr-go", "workspace"), nil
 }
