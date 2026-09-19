@@ -15,7 +15,7 @@ import (
 // saveCmd represents the save command
 var saveCmd = &cobra.Command{
 	Use:   "save <name> [workspace id]",
-	Short: "Saves a workspace layout",
+	Short: "Saves a workspace layout into a named profile",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
