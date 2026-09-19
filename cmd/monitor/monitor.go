@@ -21,6 +21,7 @@ var MonitorCmd = &cobra.Command{
 func init() {
 	MonitorCmd.AddCommand(saveCmd)
 	MonitorCmd.AddCommand(restoreCmd)
+	MonitorCmd.PersistentFlags().String("dir", "", "directory for layout files (default: $XDG_DATA_HOME/hypr-go/monitor)")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

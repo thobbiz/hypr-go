@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/thobbiz/hypr-go/hyprerr"
@@ -11,7 +13,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func SaveMonitor(name string) error {
+func SaveMonitor(name string, dir string) error {
+	path, err := LayoutPath(dir, name)
+	if err != nil {
+		return err
+	}
+
 	monitors, err := getMonitors()
 	if err != nil {
 		return err
@@ -23,7 +30,7 @@ func SaveMonitor(name string) error {
 		Monitors: *monitors,
 	}
 
-	err = saveMonitorAsYaml(monitorLayout)
+	err = saveMonitorLayoutAsYaml(monitorLayout, path)
 	if err != nil {
 		return err
 	}
@@ -31,16 +38,18 @@ func SaveMonitor(name string) error {
 	return nil
 }
 
-func saveMonitorAsYaml(monitorLayout MonitorLayout) error {
-	data, err := yaml.Marshal(monitorLayout)
+func saveMonitorLayoutAsYaml(layout MonitorLayout, path string) error {
+	data, err := yaml.Marshal(layout)
 	if err != nil {
-		return hyprerr.New("saveMonitorAsYaml", hyprerr.ErrParse, err)
+		return hyprerr.New("saveMonitorLayoutAsYaml", hyprerr.ErrParse, err)
 	}
 
-	name := fmt.Sprintf("./data/monitor/%s.yaml", monitorLayout.Name)
-	err = os.WriteFile(name, data, 0644)
-	if err != nil {
-		return hyprerr.New("saveMonitorAsYaml", hyprerr.ErrIO, err)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return hyprerr.New("saveMonitorLayoutAsYaml", hyprerr.ErrIO, err)
+	}
+
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return hyprerr.New("saveMonitorLayoutAsYaml", hyprerr.ErrIO, err)
 	}
 
 	return nil
@@ -77,4 +86,56 @@ func getMonitors() (*[]MonitorEntry, error) {
 		return nil, hyprerr.New("getMonitors", hyprerr.ErrNotFound, fmt.Errorf("no monitors found"))
 	}
 	return &result, nil
+}
+
+func LayoutPath(dir, name string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", err
+	}
+
+	base, err := resolveDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(base, name+".yaml"), nil
+}
+
+func validateName(name string) error {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) || strings.HasSuffix(name, ".yaml") {
+		return hyprerr.New("validateName", hyprerr.ErrInvalidInput, fmt.Errorf("invalid layout name %q", name))
+	}
+	return nil
+}
+
+func resolveDir(dir string) (string, error) {
+	if dir == "" {
+		return defaultDir()
+	}
+
+	if dir == "~" || strings.HasPrefix(dir, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", hyprerr.New("resolveDir", hyprerr.ErrIO, err)
+		}
+		dir = filepath.Join(home, strings.TrimPrefix(dir, "~"))
+	}
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", hyprerr.New("resolveDir", hyprerr.ErrIO, err)
+	}
+	return abs, nil
+}
+
+func defaultDir() (string, error) {
+	base := os.Getenv("XDG_DATA_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", hyprerr.New("defaultDir", hyprerr.ErrIO, err)
+		}
+		base = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(base, "hypr-go", "monitor"), nil
 }

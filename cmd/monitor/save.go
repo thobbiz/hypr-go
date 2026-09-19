@@ -11,11 +11,17 @@ import (
 // monitor/saveCmd represents the monitor/save command
 var saveCmd = &cobra.Command{
 	Use:   "save <name>",
-	Short: "captures all currently connected monitors into a named profile",
+	Short: "Saves all currently connected monitors into a named profile",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		return monitor.SaveMonitor(name)
+
+		dir, err := getDir(cmd)
+		if err != nil {
+			return err
+		}
+
+		return monitor.SaveMonitor(name, dir)
 	},
 }
 

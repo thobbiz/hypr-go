@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/thobbiz/hypr-go/hyprerr"
 	"github.com/thobbiz/hypr-go/monitor"
 )
 
@@ -15,8 +16,22 @@ var restoreCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		return monitor.RestoreMonitor(name)
+
+		dir, err := getDir(cmd)
+		if err != nil {
+			return err
+		}
+
+		return monitor.RestoreMonitor(name, dir)
 	},
+}
+
+func getDir(cmd *cobra.Command) (string, error) {
+	dir, err := cmd.Flags().GetString("dir")
+	if err != nil {
+		return "", hyprerr.New("getDir", hyprerr.ErrParse, err)
+	}
+	return dir, nil
 }
 
 func init() {
